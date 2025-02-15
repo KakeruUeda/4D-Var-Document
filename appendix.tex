@@ -1,0 +1,40 @@
+\section{$\mathbf{v}$に対するガトー微分}
+ラグランジュ関数の$\mathbf{v}$でのガトー微分について，式(\ref{eq:adjoint_problem})のベクトルk成分は，
+\begin{equation}
+    \label{eq:adjoint_vdd}
+    \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^k}, \delta \mathbf{v}^k\right\rangle
+    = \begin{cases}
+      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k+1}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle 
+      & \text { for } 1 \leq k<N-1 \\[12pt]
+      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      & \text { for } k=N-1 \\[12pt]
+      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \delta \mathbf{v}^{k}\right\rangle
+      & \text { for } k=N \\[12pt]
+    \end{cases}
+\end{equation}
+である．式(\ref{eq:adjoint_vdd})の右辺はそれぞれ
+\begin{align}
+    &\left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^k}, \delta \mathbf{v}^k\right\rangle
+    = \alpha \sum_{j=1}^{M_\text{m}} \left(\mathcal{T}^{\mathrm{ave}}_{j}\mathbf{v} (\mathbf{x}, t_k) - \mathbf{v}^{\mathrm{spline}}_{\text{m}}(\mathbf{x}_j, t_k)\right) \cdot \delta \mathbf{v}^k \Delta x_{\text{m}} \Delta y_{\text{m}} \Delta z_{\text{m}} \\
+    &\begin{aligned}
+        \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^k}, \delta \mathbf{v}^k\right\rangle
+        &= \int_{\Omega} \bigg( \mathbf{w}^{k} \cdot \rho\frac{\delta \mathbf{v}^k}{\Delta t} + \frac{\rho}{4} \mathbf{w}^{k} \cdot \left( 3\mathbf{v}^{k-1} - \mathbf{v}^{k-2} \right) \cdot \nabla \delta \mathbf{v}^{k} 
+        - \frac{\mu}{2} \nabla \mathbf{w}^{k}: \nabla \delta \mathbf{v}^k \\
+        & + \frac{1}{2\rho} \mathbf{w}^{k} \cdot \mathbf{K}(\phi) \delta \mathbf{v}^k + q^{k} (\nabla \cdot \delta \mathbf{v}^{k}) \bigg) \, \mathrm{d}\Omega \\
+    \end{aligned} \\
+    &\begin{aligned}
+        \left\langle\frac{\partial \mathcal{F}_k}{\partial \mathbf{v}^k}, \delta \mathbf{v}^k\right\rangle
+        &= \int_{\Omega} \bigg( -\mathbf{w}^{k+1} \cdot \rho \frac{\delta \mathbf{v}^k}{\Delta t} + \frac{3\rho}{4} \mathbf{w}^{k+1} \cdot \delta \mathbf{v}^k \cdot \nabla \mathbf{v}^{k+1} + \frac{\rho}{4} \mathbf{w}^{k+1} \cdot \left( 3\mathbf{v}^k - \mathbf{v}^{k-1} \right) \cdot \nabla \delta \mathbf{v}^{k} \\
+        &- \frac{\mu}{2} \nabla \mathbf{w}^{k+1}: \nabla \delta \mathbf{v}^k + \frac{1}{2\rho} \mathbf{w}^{k+1} \cdot \mathbf{K}(\phi) \delta \mathbf{v}^k \bigg) \, \mathrm{d}\Omega
+    \end{aligned} \\
+    &\left\langle\frac{\partial \mathcal{F}_{k+1}}{\partial \mathbf{v}^k}, \delta \mathbf{v}^k\right\rangle
+    = \int_{\Omega} \bigg( - \frac{\rho}{4}\mathbf{w}^{k+2} \cdot \delta \mathbf{v}^{k} \cdot \nabla \mathbf{v}^{k+1} 
+    - \frac{\rho}{4} \mathbf{w}^{k+2} \cdot \delta \mathbf{v}^{k} \cdot \nabla \mathbf{v}^{k}\bigg) \, \mathrm{d}\Omega 
+\end{align}
+と表せる．

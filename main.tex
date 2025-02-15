@@ -1,269 +1,68 @@
 \documentclass[a4paper,xelatex,ja=standard]{bxjsarticle}
 \usepackage[dvipdfmx]{graphicx}
-\usepackage[T1]{fontenc}
-\usepackage{newpxtext, newpxmath}
+\usepackage{fontspec}
+%\usepackage{newtxmath}
+\usepackage{newpxmath}
 \usepackage{verbatim}
-\makeatletter
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{url}
+\usepackage{float}
+\usepackage{tocloft}
+\usepackage{bm}
+\usepackage{caption}
+\usepackage{subcaption}
+\setmainfont{Times New Roman} 
+
+% ======== Only WIN =========================
+% \newfontface\minchofont{MS Mincho}
+% \setmonofont{MS Gothic}[BoldFont={MS Gothic}]
+% ============================================
+
+% ======== Reference setting =========================
+\usepackage[sorting=none, style=numeric-comp, maxnames=19, giveninits=true, backend=biber]{biblatex}
+\addbibresource{ref.bib}
+\input{appearance/citestyle.tex}
+% =====================================================
+
+% ======== Titlepage setting ==========================
+% \input{appearance/title.tex}
+% OR
+% \title{TITLE}
+% \date{\today}
+% \author{NAME}
+% =====================================================
+
+\setlength{\cftsecindent}{0.0em}
+\setlength{\cftsecnumwidth}{4.0em}
+
+% Other setting ========================================
+\input{appearance/sectiontochapter.tex}
+\input{appearance/enablessssection.tex}
+% =====================================================
+
+% let subsection in the mokuji
+\setcounter{tocdepth}{4} 
+
+\thispagestyle{empty}
 
 \begin{document}
-\section{4次元変文データ同化}
+    \clearpage
+    \input{DA.tex}
+    
+    \clearpage
+    \printbibliography[title=参考文献, heading=bibintoc]
 
-\subsection{問題設定}
-MRI領域$\Omega_{\text{m}}$が，$\Delta x_{\text{m}} \times \Delta y_{\text{m}} \times \Delta z_{\text{m}}$の大きさを持つM個のボクセルで分割された状態を考え，
-各ボクセルが，$\Delta t_{\text{m}}$ の計測間隔で得たN個の時系列速度情報を有するとする．これに対し，数値流体力学（CFD）を適用する計算領域$\Omega$を定義し，CFD速度を$\mathbf{v}$，CFD時間刻みを$\Delta t \ (\leq \Delta t_m)$とする．
-入口境界$\Gamma_\mathrm{I}$におけるディリクレ速度を$\mathbf{V}$と，CFDの初期速度場$\mathbf{v}^0$をデータ同化の制御変数とする．
+    \clearpage
+    \appendix
+    \addtocontents{toc}{%
+        \protect\setlength{\cftsecnumwidth}{7.0em}
+    }
+    \renewcommand{\appendixname}{Appendix }
+    \clearpage
+    \input{appendix.tex}
 
-データ同化の定式化にあたり，コスト関数を
-\begin{equation}
-    \label{eq:cost_function}
-    \mathcal{J}(\mathbf{v}, \mathbf{v}^{0}, \mathbf{V}) = \mathcal{D}(\mathbf{v}) + \mathcal{R}(\mathbf{v}^{0}, \mathbf{V})
-\end{equation}
-と定義する．ここで，右辺第1項は，計測速度とCFD速度の誤差を表し
-\begin{equation}
-    \label{eq:error_function}
-    \mathcal{D}(\mathbf{v}) = 
-    \frac{\alpha}{2} \sum_{i=1}^{N} \sum_{j=1}^{M} \left\|[\mathcal{T}\mathbf{v}]_{i, j}-\mathbf{v}_{i,j}^{\text{m}}\right\|^2 \Delta x_{\text{m}} \Delta y_{\text{m}} \Delta z_{\text{m}} \Delta t_{\text{m}} 
-\end{equation}
-である．ここで，$\alpha$は誤差関数のハイパーパラメータ，$\mathcal{T}$は計測オペレータ
-\begin{equation}
-    \mathcal{T} : \mathbf{v} \mapsto \frac{1}{\Delta x_{\text{m}} \Delta y_{\text{m}} \Delta z_{\text{m}}} \int_{\Omega_\text{v}} \mathbf{v} d \Omega
-\end{equation}
-であり，MRIの計測原理に基づき，ボクセル領域$\Omega_{\text{v}}$における速度の空間平滑化効果をモデル化する．
-また，右辺第2項は，正則化項を表し，[1]に基づき，各制御変数に対するノルムを
-\begin{equation}
-    \label{eq:regularization}
-    \begin{aligned}
-    \mathcal{R}(\mathbf{v}^0, \mathbf{V}) 
-    &= \frac{\beta}{2} \sum_{k=1}^{M} \int_{\Gamma_\mathrm{I}} \big( \left|\mathbf{V}\right|^2+\left|\partial_s \mathbf{V}\right|^2+\left|\dot{\mathbf{V}}\right|^2+\left|\partial_s \dot{\mathbf{V}}\right|^2 \big) \, \mathrm{d}\Gamma
-    + \frac{\gamma}{2} \int_{\Omega}  \big( \left|\mathbf{v}^{0}\right|^2+\left|\partial_s \mathbf{v}^{0} \right|^2  \big) \, \mathrm{d}\Omega
-    \end{aligned}
-\end{equation}
-と与える．ここで，$\beta$と$\gamma$は正則化項に対するハイパーパラメータである
-
-\subsection{最適化手法（Discretise-Then-Optimise Approach）}
-流体の離散支配方程式を，ナビエ・ストークス方程式と連続の式を用いて
-\begin{equation}
-    \label{eq:navier-stokes}
-    \rho\frac{\mathbf{v}^{k+1}-\mathbf{v}^k}{\Delta t} + \rho\left( \frac{3}{2}\mathbf{v}^k - \frac{1}{2}\mathbf{v}^{k-1} \right) \cdot \nabla \mathbf{v}^{k+1 / 2} + \nabla p^{k+1} - \mu \nabla^2 \mathbf{v}^{k+1/2} + \frac{1}{\rho}\mathbf{K}(\phi) \mathbf{v}^{k+1/2} = \mathbf{0}
-\end{equation}
-\begin{equation}
-    \label{eq:continuity}
-    \nabla \cdot \mathbf{v}^{k+1}=\mathbf{0}
-\end{equation}
-と記述する．ここで，移流項に対し2次精度Adams-Bashforth法，拡散項に対してはCrank-Nicolson法を用いた．
-式(\ref{eq:navier-stokes})，式(\ref{eq:continuity})に対し，重み付き残差法による弱形式を導き，全CFD時間ステップで総和を取ると，拘束条件が
-\begin{equation}
-    \label{eq:weak-form}
-    \mathcal{F}=\sum_{k=0}^{N-1} \mathcal{F}_{k} = 0
-\end{equation}
-と表せる．ここで，
-\begin{equation}
-    \label{eq:weak-form-k}
-    \begin{aligned}
-        \mathcal{F}_{k} & = \int_{\Omega} \mathbf{w}^{k+1} \cdot \bigg(\rho\frac{\mathbf{v}^{k+1}-\mathbf{v}^k}{\Delta t} + \rho\left(\frac{3}{2}\mathbf{v}^k - \frac{1}{2}\mathbf{v}^{k-1} \right) \cdot \nabla \mathbf{v}^{k+1 / 2} + \nabla p^{k+1} - \mu \nabla^2 \mathbf{v}^{k+1/2} + \frac{1}{\rho}\mathbf{K}(\phi) \mathbf{v}^{k+1/2} \bigg) \, \mathrm{d}\Omega \\
-        &+ \int_{\Omega} q^{k+1}(\nabla \cdot \mathbf{v}^{k+1}) \, \mathrm{d}\Omega - \int_{\Gamma_1} \lambda^{k+1} \cdot (\mathbf{v}^{k+1} - \mathbf{V}^{k+1}) \, \mathrm{d}\Gamma - \int_{\Gamma_1} \boldsymbol{\eta}^{k+1} \cdot (\mathbf{w}^{k+1} - \mathbf{0}) \, \mathrm{d}\Gamma = \mathbf{0}
-    \end{aligned}
-\end{equation}
-であり，右辺第7項は入口の速度ディリクレ境界条件，第8項は重み関数$\mathbf{w}$の境界条件である．数値安定化手法に，SUPG/PSPG法を用いたが，煩雑を避け，これらの項は省略する．さらに，目的関数・拘束条件を合わせたLagrange関数
-\begin{equation}
-    \label{eq:lagrange}
-    \mathcal{L} = \mathcal{F} + \mathcal{J}
-\end{equation}
-より，制約なし最小化問題を
-\begin{equation}
-    \label{eq:minimization}
-    \min_{\mathbf{v}^{0}, \mathbf{V}} \mathcal{L}
-\end{equation}
-と定義する．
-
-制御変数のコスト関数に対する感度導出にあたり，随伴変数法を用いる．主問題は，$\mathbf{w}$，$q$，$\boldsymbol{\lambda}$に関するガトー微分より，
-\begin{equation}
-    \everymath{\displaystyle}
-    \setlength{\arraycolsep}{0.5pt}
-    \renewcommand{\arraystretch}{2.5}
-    \label{eq:main_problem}
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{w}}, \tilde{\mathbf{w}}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{w}^{\scriptscriptstyle 1}}, \tilde{\mathbf{w}}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{w}^{\scriptscriptstyle N}}, \tilde{\mathbf{w}}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-    ,\quad
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial q}, \tilde{q}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial q^{\scriptscriptstyle 1}}, \tilde{q}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial q^{\scriptscriptstyle N}}, \tilde{q}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-    ,\quad
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\lambda}}, \tilde{\boldsymbol{\lambda}}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\lambda}^{\scriptscriptstyle 1}}, \tilde{\boldsymbol{\lambda}}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\lambda}^{\scriptscriptstyle N}}, \tilde{\boldsymbol{\lambda}}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-\end{equation}
-と表され，各時間ステップ$k \ (1 \leq k \leq N)$において
-\begin{align}
-    &\begin{aligned}
-        \label{eq:foward_w}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{w}^k}, \tilde{\mathbf{w}}^k\right\rangle
-        & = \int_{\Omega} \bigg( \tilde{\mathbf{w}}^{k+1} \cdot \rho\frac{\mathbf{v}^{k+1}-\mathbf{v}^k}{\Delta t}
-        +\tilde{\mathbf{w}}^{k+1} \cdot \rho \left( \frac{3}{2}\mathbf{v}^k - \frac{1}{2}\mathbf{v}^{k-1} \right) \cdot \nabla \mathbf{v}^{k+1 / 2} 
-        + p^{k+1} (\nabla \cdot \tilde{\mathbf{w}}^{k}) \\
-        &- \mu \nabla \tilde{\mathbf{w}}^{k+1} : \mathbf{v}^{k+1/2} + \tilde{\mathbf{w}}^{k+1} \cdot \frac{1}{\rho}\mathbf{K}(\phi) \mathbf{v}^{k+1/2} \bigg) \, \mathrm{d}\Omega
-        - \int_{\Gamma_1} \boldsymbol{\eta}^{k+1} \cdot \tilde{\mathbf{w}}^{k+1} \, \mathrm{d}\Gamma = 0
-    \end{aligned} \\
-    \label{eq:foward_q} 
-    & \left\langle\frac{\partial \mathcal{L}}{\partial q^k}, \tilde{q}^k\right\rangle
-    =\int_{\Omega} \tilde{q}^k(\nabla \cdot \mathbf{v}^{k+1}) \, \mathrm{d}\Omega
-    = 0 \\
-    \label{eq:foward_lambda} 
-    &\left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\lambda}^k}, \tilde{\boldsymbol{\lambda}}^k\right\rangle
-    = \int_{\Gamma_1} \tilde{\boldsymbol{\lambda}}^k \cdot (\mathbf{v}^{k+1} - \mathbf{V}^{k+1}) \, \mathrm{d}\Gamma
-    = 0
-\end{align}
-とそれぞれ記述できる．
-
-次に，随伴問題は，$\mathbf{v}$，$p$，$\boldsymbol{\eta}$に関するガトー微分より，
-\begin{equation}
-    \everymath{\displaystyle}
-    \setlength{\arraycolsep}{0.5pt}
-    \renewcommand{\arraystretch}{2.5}
-    \label{eq:adjoint_problem}
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}}, \tilde{\mathbf{v}}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^{\scriptscriptstyle 1}}, \tilde{\mathbf{v}}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^{\scriptscriptstyle N}}, \tilde{\mathbf{v}}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-    ,\quad
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial p}, \tilde{p}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial p^{\scriptscriptstyle 1}}, \tilde{p}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial p^{\scriptscriptstyle N}}, \tilde{p}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-    ,\quad
-    {}^{t}\!\left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\eta}}, \tilde{\boldsymbol{\eta}}\right\rangle
-    = \begin{pmatrix}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\eta}^{\scriptscriptstyle 1}}, \tilde{\boldsymbol{\eta}}^{\scriptscriptstyle 1}\right\rangle \\
-        \vdots \\
-        \left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\eta}^{\scriptscriptstyle N}}, \tilde{\boldsymbol{\eta}}^{\scriptscriptstyle N}\right\rangle 
-    \end{pmatrix}
-    =\mathbf{0}
-\end{equation}
-と表され，各時間ステップ$k \ (1 \leq k \leq N)$において
-\begin{align}
-    &\begin{aligned}
-        \label{eq:adjoint_v}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-        = &\int_{\Omega} \bigg( \rho\frac{\mathbf{w}^{k} - \mathbf{w}^{k+1}}{\Delta t} \cdot \tilde{\mathbf{v}}^k
-        + \frac{\rho}{4} \mathbf{w}^{k} \cdot \left( 3\mathbf{v}^{k-1} - \mathbf{v}^{k-2} \right) \cdot \nabla \tilde{\mathbf{v}}^{k}
-        + \frac{3\rho}{4} \mathbf{w}^{k+1} \cdot \tilde{\mathbf{v}}^k \cdot \nabla \mathbf{v}^{k+1} \\ 
-        &+ \frac{\rho}{4} \mathbf{w}^{k+1} \cdot \left( 3\mathbf{v}^k - \mathbf{v}^{k-1} \right) \cdot \nabla \tilde{\mathbf{v}}^{k}
-        - \frac{\rho}{4} \mathbf{w}^{k+2} \cdot \tilde{\mathbf{v}}^{k} \cdot \nabla \mathbf{v}^{k+1} 
-        - \frac{\rho}{4}  \mathbf{w}^{k+2} \cdot \tilde{\mathbf{v}}^{k} \cdot \nabla \mathbf{v}^{k} \\
-        & +  q^{k+1} (\nabla \cdot \tilde{\mathbf{v}}^{k+1})
-        - \frac{\mu}{2} \left(\nabla \mathbf{w}^{k} + \nabla \mathbf{w}^{k+1}\right) : \nabla \tilde{\mathbf{v}}^k
-        + \frac{1}{2\rho} \left(\mathbf{w}^{k} + \mathbf{w}^{k+1}\right) \cdot \mathbf{K}(\phi) \tilde{\mathbf{v}}^k 
-        \bigg) \, \mathrm{d}\Omega \\
-        &+ \int_{\Gamma_1} \lambda^{k+1} \cdot \tilde{\mathbf{v}}^{k} \, \mathrm{d}\Gamma
-        + \alpha \smash{\sum_{i=1}^{N} \sum_{j=1}^{M}} \left([\mathcal{T}\mathbf{v}]_{i, j}-\mathbf{v}_{i,j}^{\text{m}}\right)\tilde{\mathbf{v}}^{k} \Delta x_{\text{m}} \Delta y_{\text{m}} \Delta z_{\text{m}} \Delta t_{\text{m}} 
-        = 0
-    \end{aligned} \\
-    \label{eq:adjoint_p} 
-    & \left\langle\frac{\partial \mathcal{L}}{\partial p^k}, \tilde{p}^k\right\rangle
-    =\int_{\Omega} \tilde{p}^k(\nabla \cdot \mathbf{w}^{k}) \, \mathrm{d}\Omega 
-    = 0 \\
-    \label{eq:adjoint_eta} 
-    &\left\langle\frac{\partial \mathcal{L}}{\partial \boldsymbol{\eta}^k}, \tilde{\boldsymbol{\eta}}^k\right\rangle
-    =\int_{\Gamma_1} \tilde{\boldsymbol{\eta}}^k \cdot \mathbf{w}^k \, \mathrm{d}\Omega 
-    = 0
-\end{align}
-とそれぞれ記述できる（Appendix A）．ここで，式（\ref{eq:adjoint_v}）に関して
-\begin{equation}
-    \begin{cases}
-        \displaystyle \mathbf{v}^{k-2} = \mathbf{v}^{0} & \text{for } k=1 \\
-        \displaystyle \mathbf{w}^{k+2} = \mathbf{0} & \text{for } k=N-1 \\
-        \displaystyle \mathbf{w}^{k+1} = \mathbf{w}^{k+2} = \mathbf{0} & \text{for } k=N
-    \end{cases}
-\end{equation}
-であり，時間逆発展させ解を求める．
-
-最後に，主問題，随伴問題より得た変数から，初期条件と，各時間ステップ$k \ (1 \leq k \leq N)$における入口速度境界条件の感度
-\begin{align}
-    \label{eq:adjoint_v0}
-    &\begin{aligned}
-        \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^0}, \tilde{\mathbf{v}}^0\right\rangle
-        = &\gamma \int_{\Omega}  \big( \mathbf{v}^{0} \cdot \tilde{\mathbf{v}}^0 
-        + \partial_s \mathbf{v}^{0} \cdot \tilde{\mathbf{v}}^0 \big) \, \mathrm{d}\Omega
-        + \int_{\Omega} \bigg( \rho\frac{ \mathbf{w}^{1}}{\Delta t} \cdot \tilde{\mathbf{v}}^0
-        - \frac{3\rho}{4} \mathbf{w}^{1} \cdot \tilde{\mathbf{v}}^0 \cdot \nabla \mathbf{v}^{1}
-        - \frac{\rho}{2} \mathbf{w}^{1} \cdot \mathbf{v}^0 \cdot \nabla \tilde{\mathbf{v}}^{k} \\
-        &+ \frac{\rho}{4} \mathbf{w}^{2} \cdot \tilde{\mathbf{v}}^{0} \cdot \nabla \mathbf{v}^1
-        + \frac{\rho}{4} \mathbf{w}^{2} \cdot \tilde{\mathbf{v}}^{0} \cdot \nabla \mathbf{v}^{0}
-         + \frac{\mu}{2} \nabla \mathbf{w}^{1} : \nabla \tilde{\mathbf{v}}^0
-        - \frac{1}{2\rho} \mathbf{w}^{1} \cdot \mathbf{K}(\phi) \tilde{\mathbf{v}}^0 
-        \bigg) \, \mathrm{d}\Omega 
-    \end{aligned} \\
-    &\left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{V}^k}, \widetilde{\mathbf{V}}^k\right\rangle
-    = \beta \int_{\Gamma_\mathrm{I}} \big( \mathbf{V}^k \cdot \widetilde{\mathbf{V}}^k + \partial_s \mathbf{V}^k \cdot \widetilde{\mathbf{V}}^k + \dot{\mathbf{V}}^k \cdot \widetilde{\mathbf{V}}^k + \partial_s \dot{\mathbf{V}} \cdot \widetilde{\mathbf{V}}^k \big) \, \mathrm{d}\Gamma
-    - \int_{\Gamma_\mathrm{I}} \lambda \cdot \widetilde{\mathbf{V}}^k \mathrm{d} \Gamma
-\end{align}
-を導出し，これらを用いて，制御変数を
-\begin{equation}
-    \mathbf{v}^0_{n+1} = \mathbf{v}^0_n - \tau_1\left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^0}, \tilde{\mathbf{v}}^0\right\rangle
-\end{equation}
-\begin{equation}
-    \mathbf{V}^k_{n+1}=\mathbf{V}^k_n - \tau_2\left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{V}^k}, \tilde{\mathbf{V}}^k\right\rangle
-\end{equation}
-と最急降下法に基づき逐次更新する．nは最適化ステップ数を表し，$\tau_1$と$\tau_2$はArmijo条件より決定したそれぞれの更新幅である．
-\newpage
-\appendix
-\renewcommand{\appendixname}{Appendix }
-\section{$\mathbf{v}$に対するガトー微分}
-
-ラグランジュ関数の$\mathbf{v}$でのガトー微分について，式(\ref{eq:adjoint_problem})のベクトルk成分は，
-\begin{equation}
-    \label{eq:adjoint_vdd}
-    \left\langle\frac{\partial \mathcal{L}}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-    = \begin{cases}
-      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k+1}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle 
-      & \text { for } 1 \leq k<N-1 \\[12pt]
-      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      & \text { for } k=N-1 \\[12pt]
-      \displaystyle \left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      + \displaystyle \left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^{k}}, \tilde{\mathbf{v}}^{k}\right\rangle
-      & \text { for } k=N \\[12pt]
-    \end{cases}
-\end{equation}
-であり，右辺はそれぞれ
-\begin{align}
-    &\left\langle\frac{\partial \mathcal{J}}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-    = \alpha \smash{\sum_{i=1}^{N} \sum_{j=1}^{M}} \left([\mathcal{T}\mathbf{v}]_{i, j}-\mathbf{v}_{i,j}^{\text{m}}\right)\tilde{\mathbf{v}}^{k} \Delta x_{\text{m}} \Delta y_{\text{m}} \Delta z_{\text{m}} \Delta t_{\text{m}} \\
-    &\left\langle\frac{\partial \mathcal{F}_{k-1}}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-    = \int_{\Omega} \bigg( \mathbf{w}^{k} \cdot \rho\frac{\tilde{\mathbf{v}}^k}{\Delta t} + \frac{\rho}{4} \mathbf{w}^{k} \cdot \left( 3\mathbf{v}^{k-1} - \mathbf{v}^{k-2} \right) \cdot \nabla \tilde{\mathbf{v}}^{k} 
-    - \frac{\mu}{2} \nabla \mathbf{w}^{k}: \nabla \tilde{\mathbf{v}}^k + \frac{1}{2\rho} \mathbf{w}^{k} \cdot \mathbf{K}(\phi) \tilde{\mathbf{v}}^k \bigg) \, \mathrm{d}\Omega \\
-    &\begin{aligned}
-        \left\langle\frac{\partial \mathcal{F}_k}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-        &= \int_{\Omega} \bigg( -\mathbf{w}^{k+1} \cdot \rho \frac{\tilde{\mathbf{v}}^k}{\Delta t_{\text{CFD}}} + \frac{3\rho}{4} \mathbf{w}^{k+1} \cdot \tilde{\mathbf{v}}^k \cdot \nabla \mathbf{v}^{k+1} + \frac{\rho}{4} \mathbf{w}^{k+1} \cdot \left( 3\mathbf{v}^k - \mathbf{v}^{k-1} \right) \cdot \nabla \tilde{\mathbf{v}}^{k} \\
-        &- \frac{\mu}{2} \nabla \mathbf{w}^{k+1}: \nabla \tilde{\mathbf{v}}^k + \frac{1}{2\rho} \mathbf{w}^{k+1} \cdot \mathbf{K}(\phi) \tilde{\mathbf{v}}^k \bigg) \, \mathrm{d}\Omega
-    \end{aligned} \\
-    &\left\langle\frac{\partial \mathcal{F}_{k+1}}{\partial \mathbf{v}^k}, \tilde{\mathbf{v}}^k\right\rangle
-    = \int_{\Omega} \bigg( - \frac{\rho}{4}\mathbf{w}^{k+2} \cdot \tilde{\mathbf{v}}^{k} \cdot \nabla \mathbf{v}^{k+1} 
-    - \frac{\rho}{4} \mathbf{w}^{k+2} \cdot \tilde{\mathbf{v}}^{k} \cdot \nabla \mathbf{v}^{k}\bigg) \, \mathrm{d}\Omega 
-\end{align}
-と表せる．
-
+    \addtocontents{toc}{%
+        \protect\setlength{\cftsecnumwidth}{4.0em}
+    }
 \end{document}
